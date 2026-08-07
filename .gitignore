@@ -1,0 +1,7 @@
+node_modules/
+.env
+.DS_Store
+auth_info_baileys/
+app/node_modules/
+server/node_modules/
+app/dist/
