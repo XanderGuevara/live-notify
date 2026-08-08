@@ -1,16 +1,22 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
 
 const activeTab = ref('integrations')
 const isConnecting = ref(false)
-const connectionStatus = ref('No conectado')
+const connectionStatus = ref(localStorage.getItem('googleConnected') === 'true' ? 'Conectado' : 'No conectado')
 
 const waStatus = ref('DISCONNECTED')
 const waQrCode = ref(null)
 
+const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const fetchWaStatus = async () => {
   try {
-    const res = await fetch('http://localhost:3000/api/status')
+    const res = await fetch(`${backendUrl}/api/status`)
     const data = await res.json()
     waStatus.value = data.whatsapp.status
     waQrCode.value = data.whatsapp.qr
@@ -19,13 +25,19 @@ const fetchWaStatus = async () => {
   }
 }
 
-// Cargar estado al inicio
-fetchWaStatus();
+onMounted(() => {
+  // Comprobar si volvemos del login exitoso
+  if (route.query.auth === 'success') {
+    localStorage.setItem('googleConnected', 'true')
+    connectionStatus.value = 'Conectado'
+    router.replace({ query: {} }) // Limpiar URL
+  }
+  fetchWaStatus();
+})
 
 const connectGoogle = async () => {
   isConnecting.value = true;
   try {
-    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const res = await fetch(`${backendUrl}/api/auth/google`);
     const data = await res.json();
     
