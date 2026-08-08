@@ -22,14 +22,25 @@ const fetchWaStatus = async () => {
 // Cargar estado al inicio
 fetchWaStatus();
 
-const connectGoogle = () => {
+const connectGoogle = async () => {
   isConnecting.value = true;
-  // Simulamos un retraso de red y luego "redirigimos" (aquí solo mostramos alerta)
-  setTimeout(() => {
+  try {
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const res = await fetch(`${backendUrl}/api/auth/google`);
+    const data = await res.json();
+    
+    if (data.url) {
+      connectionStatus.value = 'Redirigiendo a Google...';
+      window.location.href = data.url; // Redirección real
+    } else {
+      alert("Faltan las credenciales de Google en el backend (.env). Revisa la consola.");
+      isConnecting.value = false;
+    }
+  } catch (e) {
+    console.error(e);
+    alert("No se pudo conectar con el servidor backend.");
     isConnecting.value = false;
-    alert("En un entorno real, esto te redirigiría a la pantalla de login de Google (OAuth 2.0).");
-    connectionStatus.value = 'Esperando Autenticación...';
-  }, 1000);
+  }
 }
 </script>
 
