@@ -8,7 +8,15 @@ const app = express();
 
 // Configurar CORS dinámico (Para permitir localhost en dev, y el dominio de GitHub Pages en prod)
 const frontendUrl = process.env.FRONTEND_URL || '*';
-app.use(cors({ origin: frontendUrl }));
+let corsOrigin = '*';
+if (frontendUrl !== '*') {
+    try {
+        corsOrigin = new URL(frontendUrl).origin; // Solo esquema + dominio para CORS
+    } catch (e) {
+        corsOrigin = frontendUrl;
+    }
+}
+app.use(cors({ origin: corsOrigin }));
 app.use(express.json());
 
 // Inicializar Google OAuth
