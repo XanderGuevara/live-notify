@@ -61,7 +61,7 @@ app.get('/api/auth/google/callback', async (req, res) => {
     try {
         await handleCallback(code);
         // Redirigir de vuelta al panel de control (Settings)
-        res.redirect(`${frontendUrl}/settings?auth=success`);
+        res.redirect(`${frontendUrl}/#/settings?auth=success`);
     } catch (error) {
         console.error('Error in OAuth callback:', error);
         res.status(500).send('Authentication failed');
