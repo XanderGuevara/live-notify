@@ -1,13 +1,33 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
-const quickText = ref(`🔴 ¡ESTAMOS EN VIVO!
-Hoy hablamos de: Lanzamiento de LiveNotify v1.0
-👉 https://youtube.com/watch?v=dQw4w9WgXcQ`);
-
+const quickText = ref('');
 const copySuccess = ref(false);
+const liveStream = ref(null);
+const isLoading = ref(true);
+
+const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+let pollInterval;
+
+const fetchLiveStream = async () => {
+  try {
+    const res = await fetch(`${backendUrl}/api/live`);
+    const data = await res.json();
+    liveStream.value = data.live;
+    if (liveStream.value) {
+      quickText.value = `🔴 ¡ESTAMOS EN VIVO!\nHoy hablamos de: ${liveStream.value.title}\n👉 ${liveStream.value.url}`;
+    } else {
+      quickText.value = '';
+    }
+  } catch(e) {
+    console.error(e);
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 const copyToClipboard = async () => {
+  if (!quickText.value) return;
   try {
     await navigator.clipboard.writeText(quickText.value);
     copySuccess.value = true;
@@ -16,6 +36,15 @@ const copyToClipboard = async () => {
     console.error('Error al copiar: ', err);
   }
 }
+
+onMounted(() => {
+  fetchLiveStream();
+  pollInterval = setInterval(fetchLiveStream, 30000); // Poll cada 30 segs
+})
+
+onUnmounted(() => {
+  clearInterval(pollInterval);
+})
 </script>
 
 <template>
@@ -26,10 +55,24 @@ const copyToClipboard = async () => {
     <div class="card mb-4 border-primary">
       <div class="card-body">
         <h5 class="card-title text-primary"><i class="bi bi-youtube"></i> Transmisión Activa</h5>
-        <h3 class="mt-3">Lanzamiento de LiveNotify v1.0</h3>
-        <a href="https://youtube.com/watch?v=dQw4w9WgXcQ" target="_blank" class="text-decoration-none">
-          https://youtube.com/watch?v=dQw4w9WgXcQ
-        </a>
+        
+        <div v-if="isLoading" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status"></div>
+          <p class="mt-2 text-muted mb-0">Buscando directos en tu canal...</p>
+        </div>
+        
+        <div v-else-if="liveStream">
+          <h3 class="mt-3">{{ liveStream.title }}</h3>
+          <a :href="liveStream.url" target="_blank" class="text-decoration-none">
+            {{ liveStream.url }}
+          </a>
+        </div>
+        
+        <div v-else class="text-center py-4 text-muted">
+          <i class="bi bi-camera-video-off fs-1 text-secondary mb-2 d-block"></i>
+          <h5>No hay transmisión activa</h5>
+          <p class="mb-0">Cuando inicies un directo en YouTube, aparecerá aquí automáticamente.</p>
+        </div>
       </div>
     </div>
 

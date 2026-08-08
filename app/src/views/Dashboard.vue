@@ -1,3 +1,34 @@
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const liveStream = ref(null);
+const lastCheck = ref('Nunca');
+let pollInterval;
+
+const fetchLiveStream = async () => {
+  try {
+    const res = await fetch(`${backendUrl}/api/live`);
+    const data = await res.json();
+    liveStream.value = data.live;
+    
+    const now = new Date();
+    lastCheck.value = now.toLocaleTimeString();
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+onMounted(() => {
+  fetchLiveStream();
+  pollInterval = setInterval(fetchLiveStream, 30000);
+})
+
+onUnmounted(() => {
+  clearInterval(pollInterval);
+})
+</script>
+
 <template>
   <div class="animate-fade-in">
     <div class="d-flex justify-content-between align-items-center mb-5">
@@ -5,7 +36,7 @@
         <h2 class="fw-bold text-dark mb-1">Dashboard</h2>
         <p class="text-muted mb-0">Resumen general de tus transmisiones en vivo.</p>
       </div>
-      <button class="btn btn-primary px-4 py-2 rounded-pill fw-medium">
+      <button class="btn btn-primary px-4 py-2 rounded-pill fw-medium" @click="fetchLiveStream">
         <i class="bi bi-arrow-repeat me-2"></i> Refrescar Estado
       </button>
     </div>
@@ -16,9 +47,9 @@
           <div class="d-flex align-items-start justify-content-between">
             <div>
               <p class="text-white-50 text-uppercase fw-bold small mb-1">Estado del Sistema</p>
-              <h3 class="display-6 fw-bold text-white mb-2">En Vivo</h3>
+              <h3 class="display-6 fw-bold text-white mb-2">{{ liveStream ? 'En Vivo' : 'Inactivo' }}</h3>
               <p class="mb-0 text-white-50 small d-flex align-items-center">
-                <i class="bi bi-clock me-1"></i> Última detección: Hace 2 minutos
+                <i class="bi bi-clock me-1"></i> Última actualización: {{ lastCheck }}
               </p>
             </div>
             <div class="bg-white bg-opacity-25 rounded-circle p-3 d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
@@ -62,25 +93,20 @@
               </tr>
             </thead>
             <tbody>
-              <tr class="align-middle shadow-sm rounded mb-2 bg-light">
-                <td class="ps-3 py-3 rounded-start"><span class="badge-live">EN VIVO</span></td>
-                <td class="py-3 fw-medium text-dark">Lanzamiento de LiveNotify v1.0</td>
-                <td class="py-3 text-muted">Hoy, 10:00 AM</td>
+              <tr v-if="liveStream" class="align-middle shadow-sm rounded mb-2 bg-light">
+                <td class="ps-3 py-3 rounded-start"><span class="badge bg-danger px-3 py-2 rounded-pill">EN VIVO</span></td>
+                <td class="py-3 fw-medium text-dark">{{ liveStream.title }}</td>
+                <td class="py-3 text-muted">Detectado ahora</td>
                 <td class="text-end pe-3 py-3 rounded-end">
                   <router-link to="/share" class="btn btn-sm btn-primary rounded-pill px-3">
                     <i class="bi bi-share me-1"></i> Compartir
                   </router-link>
                 </td>
               </tr>
-              <tr style="height: 10px;"></tr>
-              <tr class="align-middle border-bottom">
-                <td class="ps-3 py-3"><span class="badge bg-secondary px-3 py-2 rounded-pill text-white">FINALIZADO</span></td>
-                <td class="py-3 text-dark">Prueba de integración con Telegram</td>
-                <td class="py-3 text-muted">Ayer, 18:30 PM</td>
-                <td class="text-end pe-3 py-3">
-                  <button class="btn btn-sm btn-light text-muted rounded-pill px-3 border" disabled>
-                    <i class="bi bi-journal-text me-1"></i> Logs
-                  </button>
+              <tr v-else>
+                <td colspan="4" class="text-center text-muted py-5">
+                  <i class="bi bi-moon-stars fs-2 d-block mb-2"></i>
+                  Esperando tu próxima transmisión...
                 </td>
               </tr>
             </tbody>
