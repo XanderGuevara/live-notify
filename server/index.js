@@ -119,8 +119,7 @@ app.get('/api/debug/youtube', async (req, res) => {
         const response = await youtube.liveBroadcasts.list({
             part: 'snippet,status',
             broadcastStatus: 'all',
-            broadcastType: 'all',
-            mine: true
+            broadcastType: 'all'
         });
         res.json({ success: true, data: response.data });
     } catch (error) {

@@ -16,8 +16,7 @@ async function getActiveLiveStream() {
         const response = await youtube.liveBroadcasts.list({
             part: 'snippet',
             broadcastStatus: 'active',
-            broadcastType: 'all',
-            mine: true
+            broadcastType: 'all'
         });
 
         const items = response.data.items;
