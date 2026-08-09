@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 
 const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-const liveStream = ref(null);
+const liveStreams = ref([]);
 const lastCheck = ref('Nunca');
 let pollInterval;
 
@@ -10,7 +10,7 @@ const fetchLiveStream = async () => {
   try {
     const res = await fetch(`${backendUrl}/api/live`);
     const data = await res.json();
-    liveStream.value = data.live;
+    liveStreams.value = data.live || [];
     
     const now = new Date();
     lastCheck.value = now.toLocaleTimeString();
@@ -47,7 +47,7 @@ onUnmounted(() => {
           <div class="d-flex align-items-start justify-content-between">
             <div>
               <p class="text-white-50 text-uppercase fw-bold small mb-1">Estado del Sistema</p>
-              <h3 class="display-6 fw-bold text-white mb-2">{{ liveStream ? 'En Vivo' : 'Inactivo' }}</h3>
+              <h3 class="display-6 fw-bold text-white mb-2">{{ liveStreams.length > 0 ? 'En Vivo' : 'Inactivo' }}</h3>
               <p class="mb-0 text-white-50 small d-flex align-items-center">
                 <i class="bi bi-clock me-1"></i> Última actualización: {{ lastCheck }}
               </p>
@@ -93,9 +93,9 @@ onUnmounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-if="liveStream" class="align-middle shadow-sm rounded mb-2 bg-light">
+              <tr v-for="stream in liveStreams" :key="stream.id" class="align-middle shadow-sm rounded mb-2 bg-light">
                 <td class="ps-3 py-3 rounded-start"><span class="badge bg-danger px-3 py-2 rounded-pill">EN VIVO</span></td>
-                <td class="py-3 fw-medium text-dark">{{ liveStream.title }}</td>
+                <td class="py-3 fw-medium text-dark">{{ stream.title }} <br><small class="text-muted">{{ stream.channelName || 'Tu Canal' }}</small></td>
                 <td class="py-3 text-muted">Detectado ahora</td>
                 <td class="text-end pe-3 py-3 rounded-end">
                   <router-link to="/share" class="btn btn-sm btn-primary rounded-pill px-3">
@@ -103,7 +103,7 @@ onUnmounted(() => {
                   </router-link>
                 </td>
               </tr>
-              <tr v-else>
+              <tr v-if="liveStreams.length === 0">
                 <td colspan="4" class="text-center text-muted py-5">
                   <i class="bi bi-moon-stars fs-2 d-block mb-2"></i>
                   Esperando tu próxima transmisión...

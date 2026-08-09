@@ -19,16 +19,18 @@ const path = require('path');
 const configPath = path.join(__dirname, 'config.json');
 function getConfig() {
     if (fs.existsSync(configPath)) {
-        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+        if (!data.channels) data.channels = [];
+        return data;
     }
-    return { recipients: '' };
+    return { recipients: '', channels: [] };
 }
 function saveConfig(config) {
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 }
 
-let currentLiveStream = null;
-let lastNotifiedVideoId = null;
+let currentLiveStreams = []; // Array de directos activos
+let notifiedVideoIds = new Set(); // Set para recordar los videos ya notificados
 
 const app = express();
 
@@ -64,34 +66,41 @@ console.log('[Server] Configuración de servidor completa, esperando peticiones.
 // --- SISTEMA DE DETECCIÓN Y ALERTAS ---
 setInterval(async () => {
     console.log('[Poller] Buscando directos activos...');
-    const stream = await getActiveLiveStream();
-    currentLiveStream = stream; // Guardar en memoria para el Frontend
+    const config = getConfig();
+    let allStreams = [];
 
-    if (stream) {
-        console.log(`[Poller] ¡Directo detectado! ID: ${stream.id}`);
-        // Si es un directo nuevo que no hemos notificado
-        if (stream.id !== lastNotifiedVideoId) {
-            lastNotifiedVideoId = stream.id;
+    // 1. Canal autenticado principal (Soporta No Listados)
+    const miStream = await getActiveLiveStream();
+    if (miStream) allStreams.push(miStream);
+
+    // 2. Otros canales (Públicos)
+    if (config.channels && config.channels.length > 0) {
+        const { checkOtherChannels } = require('./youtube');
+        const otros = await checkOtherChannels(config.channels);
+        allStreams = allStreams.concat(otros);
+    }
+
+    currentLiveStreams = allStreams; // Actualizar memoria para Frontend
+
+    for (const stream of allStreams) {
+        if (!notifiedVideoIds.has(stream.id)) {
+            notifiedVideoIds.add(stream.id);
+            console.log(`[Poller] ¡Nuevo Directo Detectado! ID: ${stream.id}`);
             
-            const config = getConfig();
             if (config.recipients && config.recipients.trim().length > 0) {
-                const message = `🔴 ¡ESTAMOS EN VIVO!\n\nHoy hablamos de: ${stream.title}\n👉 ${stream.url}`;
+                const message = `🔴 ¡ESTAMOS EN VIVO!\n\nCanal: ${stream.channelName || 'Tu Canal'}\nTema: ${stream.title}\n👉 ${stream.url}`;
                 const numbers = config.recipients.split(',').map(n => n.trim());
                 
                 for (const number of numbers) {
                     try {
-                        console.log(`[Poller] Enviando alerta por WhatsApp a ${number}...`);
+                        console.log(`[Poller] Enviando alerta a ${number}...`);
                         await sendMessage(number, message);
                     } catch (err) {
                         console.error(`[Poller] Error enviando a ${number}:`, err.message);
                     }
                 }
-            } else {
-                console.log('[Poller] No hay destinatarios configurados para enviar la alerta.');
             }
         }
-    } else {
-        // console.log('[Poller] No hay directos activos en este momento.');
     }
 }, 5 * 60 * 1000); // 5 minutos
 
@@ -104,7 +113,7 @@ app.get('/api/status', (req, res) => {
 });
 
 app.get('/api/live', (req, res) => {
-    res.json({ live: currentLiveStream });
+    res.json({ live: currentLiveStreams });
 });
 
 app.get('/api/debug/youtube', async (req, res) => {

@@ -11,6 +11,9 @@ const connectionStatus = ref(localStorage.getItem('googleConnected') === 'true' 
 
 const waStatus = ref('DISCONNECTED')
 const waQrCode = ref(null)
+const recipients = ref('')
+const channels = ref([])
+const newChannelId = ref('')
 
 const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -20,6 +23,11 @@ const fetchWaStatus = async () => {
     const data = await res.json()
     waStatus.value = data.whatsapp.status
     waQrCode.value = data.whatsapp.qr
+
+    const configRes = await fetch(`${backendUrl}/api/config`)
+    const configData = await configRes.json()
+    recipients.value = configData.recipients || ''
+    channels.value = configData.channels || []
   } catch(e) {
     console.error(e)
   }
@@ -53,6 +61,32 @@ const connectGoogle = async () => {
     alert("No se pudo conectar con el servidor backend.");
     isConnecting.value = false;
   }
+}
+
+const saveConfig = async () => {
+  try {
+    await fetch(`${backendUrl}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipients: recipients.value, channels: channels.value })
+    })
+    alert("Configuración guardada exitosamente en la nube.")
+  } catch(e) {
+    alert("Error al guardar configuración")
+  }
+}
+
+const addChannel = () => {
+  if (newChannelId.value && !channels.value.includes(newChannelId.value)) {
+    channels.value.push(newChannelId.value)
+    newChannelId.value = ''
+    saveConfig()
+  }
+}
+
+const removeChannel = (index) => {
+  channels.value.splice(index, 1)
+  saveConfig()
 }
 </script>
 
@@ -153,15 +187,41 @@ const connectGoogle = async () => {
               </div>
             </div>
 
-            <form @submit.prevent>
+            <form @submit.prevent="saveConfig">
               <div class="mb-3">
                 <label class="form-label fw-bold">Destinatarios (Separados por coma)</label>
-                <input type="text" class="form-control" placeholder="5215555555555, 34666666666">
+                <input type="text" class="form-control" v-model="recipients" placeholder="5215555555555, 34666666666">
                 <div class="form-text">Números con código de país a los que se enviará la alerta.</div>
               </div>
-              <button class="btn btn-outline-success w-100" @click="fetchWaStatus">
-                <i class="bi bi-arrow-repeat"></i> Refrescar Estado QR
-              </button>
+              
+              <hr class="my-4">
+              
+              <div class="mb-3">
+                <label class="form-label fw-bold">Monitorear Otros Canales (IDs de YouTube)</label>
+                <div class="input-group mb-2">
+                  <input type="text" class="form-control" v-model="newChannelId" placeholder="Ej: UCi2K_m2oVwN722e1vQ">
+                  <button class="btn btn-outline-primary" type="button" @click="addChannel">Agregar</button>
+                </div>
+                <div class="form-text mb-3">Pega aquí el ID del canal (empieza con UC...). Estos se detectarán si hacen directos públicos.</div>
+                
+                <ul class="list-group">
+                  <li v-for="(ch, idx) in channels" :key="idx" class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ ch }}
+                    <button class="btn btn-sm btn-outline-danger" @click="removeChannel(idx)"><i class="bi bi-trash"></i></button>
+                  </li>
+                </ul>
+              </div>
+
+              <hr class="my-4">
+              
+              <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                  <i class="bi bi-save"></i> Guardar Todo
+                </button>
+                <button type="button" class="btn btn-outline-success w-100" @click="fetchWaStatus">
+                  <i class="bi bi-arrow-repeat"></i> Refrescar Estado QR
+                </button>
+              </div>
             </form>
           </div>
         </div>

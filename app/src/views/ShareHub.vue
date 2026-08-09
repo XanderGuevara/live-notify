@@ -3,20 +3,32 @@ import { ref, onMounted, onUnmounted } from 'vue'
 
 const quickText = ref('');
 const copySuccess = ref(false);
-const liveStream = ref(null);
+const liveStreams = ref([]);
+const selectedStream = ref(null);
 const isLoading = ref(true);
 
 const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 let pollInterval;
 
+const updateQuickText = () => {
+  if (selectedStream.value) {
+    quickText.value = `🔴 ¡ESTAMOS EN VIVO!\nCanal: ${selectedStream.value.channelName || 'Tu Canal'}\nTema: ${selectedStream.value.title}\n👉 ${selectedStream.value.url}`;
+  }
+}
+
 const fetchLiveStream = async () => {
   try {
     const res = await fetch(`${backendUrl}/api/live`);
     const data = await res.json();
-    liveStream.value = data.live;
-    if (liveStream.value) {
-      quickText.value = `🔴 ¡ESTAMOS EN VIVO!\nHoy hablamos de: ${liveStream.value.title}\n👉 ${liveStream.value.url}`;
+    liveStreams.value = data.live || [];
+    
+    if (liveStreams.value.length > 0) {
+      if (!selectedStream.value || !liveStreams.value.find(s => s.id === selectedStream.value.id)) {
+        selectedStream.value = liveStreams.value[0];
+      }
+      updateQuickText();
     } else {
+      selectedStream.value = null;
       quickText.value = '';
     }
   } catch(e) {
@@ -58,14 +70,26 @@ onUnmounted(() => {
         
         <div v-if="isLoading" class="text-center py-4">
           <div class="spinner-border text-primary" role="status"></div>
-          <p class="mt-2 text-muted mb-0">Buscando directos en tu canal...</p>
+          <p class="mt-2 text-muted mb-0">Buscando directos...</p>
         </div>
         
-        <div v-else-if="liveStream">
-          <h3 class="mt-3">{{ liveStream.title }}</h3>
-          <a :href="liveStream.url" target="_blank" class="text-decoration-none">
-            {{ liveStream.url }}
-          </a>
+        <div v-else-if="liveStreams.length > 0">
+          <div v-for="stream in liveStreams" :key="stream.id" 
+               class="mb-3 p-3 border rounded position-relative" 
+               :class="{'bg-light border-primary border-2': selectedStream?.id === stream.id}" 
+               @click="selectedStream = stream; updateQuickText()"
+               style="cursor: pointer;">
+            
+            <div v-if="selectedStream?.id === stream.id" class="position-absolute top-0 end-0 p-2">
+              <span class="badge bg-primary rounded-pill"><i class="bi bi-check-circle-fill"></i> Seleccionado</span>
+            </div>
+
+            <h4 class="mt-1 me-5">{{ stream.title }} <span class="badge bg-danger fs-6 align-middle ms-2">EN VIVO</span></h4>
+            <p class="text-muted mb-1"><i class="bi bi-person-video"></i> {{ stream.channelName || 'Tu Canal' }}</p>
+            <a :href="stream.url" target="_blank" class="text-decoration-none d-block mt-2">
+              {{ stream.url }}
+            </a>
+          </div>
         </div>
         
         <div v-else class="text-center py-4 text-muted">
