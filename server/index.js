@@ -46,7 +46,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 // Iniciar WhatsApp al arrancar el servidor
-connectToWhatsApp();
+console.log('[Server] Iniciando conexión a WhatsApp...');
+connectToWhatsApp().catch(err => {
+    console.error('[Server] Error crítico al iniciar WhatsApp:', err);
+});
+console.log('[Server] Configuración de servidor completa, esperando peticiones...');
 
 // --- SISTEMA DE DETECCIÓN Y ALERTAS ---
 setInterval(async () => {
